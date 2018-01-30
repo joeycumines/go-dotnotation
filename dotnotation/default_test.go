@@ -44,6 +44,11 @@ type mapSetterCase struct {
 	output   map[string]interface{}
 }
 
+type parserCase struct {
+	key string
+	props []string
+}
+
 func TestDefaultGetter_invalidTypes(t *testing.T) {
 	invalidTypes := []interface{}{
 		1,
@@ -120,6 +125,19 @@ func TestDefaultGetter_slice(t *testing.T) {
 				t.Errorf("%s failed: unexpected value %v / error %v for %v", testCase.name, v, err, testCase)
 			}
 		}
+
+		// one level of pointers indirection works too
+		v, err = DefaultGetter(&(testCase.target), testCase.property)
+
+		if testCase.success {
+			if err != nil || v != testCase.result {
+				t.Errorf("%s failed: unexpected value %v / error %v for %v", testCase.name, v, err, testCase)
+			}
+		} else {
+			if err == nil || v != nil {
+				t.Errorf("%s failed: unexpected value %v / error %v for %v", testCase.name, v, err, testCase)
+			}
+		}
 	}
 }
 
@@ -149,6 +167,19 @@ func TestDefaultGetter_map(t *testing.T) {
 
 	for _, testCase := range testCases {
 		v, err := DefaultGetter(testCase.target, testCase.property)
+
+		if testCase.success {
+			if err != nil || v != testCase.result {
+				t.Errorf("%s failed: unexpected value %v / error %v for %v", testCase.name, v, err, testCase)
+			}
+		} else {
+			if err == nil || v != nil {
+				t.Errorf("%s failed: unexpected value %v / error %v for %v", testCase.name, v, err, testCase)
+			}
+		}
+
+		// one level of pointer indirection works too
+		v, err = DefaultGetter(&(testCase.target), testCase.property)
 
 		if testCase.success {
 			if err != nil || v != testCase.result {
@@ -191,6 +222,121 @@ func TestDefaultSetter_invalidTypes(t *testing.T) {
 }
 
 func TestDefaultSetter_slice(t *testing.T) {
+	testCases := []sliceSetterCase{
+		{
+			name:     "non-integer property",
+			target:   []interface{}{1, 2},
+			property: "PROPERTY",
+			success:  false,
+			value:    3,
+			output:   []interface{}{1, 2},
+		},
+		{
+			name:     "lower out of bounds",
+			target:   []interface{}{1, 2},
+			property: "-1",
+			success:  false,
+			value:    3,
+			output:   []interface{}{1, 2},
+		},
+		{
+			name:     "upper out of bounds",
+			target:   []interface{}{1, 2},
+			property: "2",
+			success:  false,
+			value:    3,
+			output:   []interface{}{1, 2},
+		},
+		{
+			name:     "upper",
+			target:   []interface{}{1, 2},
+			property: "1",
+			success:  true,
+			value:    3,
+			output:   []interface{}{1, 3},
+		},
+		{
+			name:     "lower",
+			target:   []interface{}{1, 2},
+			property: "0",
+			success:  true,
+			value:    3,
+			output:   []interface{}{3, 2},
+		},
+	}
+
+	for _, testCase := range testCases {
+		err := DefaultSetter(testCase.target, testCase.property, testCase.value)
+
+		if diff := deep.Equal(testCase.output, testCase.target); diff != nil {
+			t.Errorf("%s failed: unexpected diff (%v) for %v", testCase.name, strings.Join(diff, ", "), testCase)
+		}
+
+		if testCase.success {
+			if err != nil {
+				t.Errorf("%s failed: unexpected error %v for %v", testCase.name, err, testCase)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("%s failed: unexpected error %v for %v", testCase.name, err, testCase)
+			}
+		}
+	}
+}
+
+func TestDefaultSetter_map(t *testing.T) {
+	testCases := []mapSetterCase{
+		{
+			name: "miss",
+			target: map[string]interface{}{
+				"one": 1,
+				"two": 2,
+			},
+			property: "PROPERTY",
+			success:  true,
+			value:    3,
+			output: map[string]interface{}{
+				"one":      1,
+				"two":      2,
+				"PROPERTY": 3,
+			},
+		},
+		{
+			name: "collision",
+			target: map[string]interface{}{
+				"one": 1,
+				"two": 2,
+			},
+			property: "two",
+			success:  true,
+			value:    3,
+			output: map[string]interface{}{
+				"one": 1,
+				"two": 3,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		err := DefaultSetter(testCase.target, testCase.property, testCase.value)
+
+		if diff := deep.Equal(testCase.output, testCase.target); diff != nil {
+			t.Errorf("%s failed: unexpected diff (%v) for %v", testCase.name, strings.Join(diff, ", "), testCase)
+		}
+
+		if testCase.success {
+			if err != nil {
+				t.Errorf("%s failed: unexpected error %v for %v", testCase.name, err, testCase)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("%s failed: unexpected error %v for %v", testCase.name, err, testCase)
+			}
+		}
+	}
+}
+
+func TestDefaultSetter_slicePointer(t *testing.T) {
 	testCases := []sliceSetterCase{
 		{
 			name:     "non-integer property",
@@ -261,7 +407,7 @@ func TestDefaultSetter_slice(t *testing.T) {
 	}
 }
 
-func TestDefaultSetter_map(t *testing.T) {
+func TestDefaultSetter_mapPointer(t *testing.T) {
 	testCases := []mapSetterCase{
 		{
 			name: "miss",
@@ -309,6 +455,35 @@ func TestDefaultSetter_map(t *testing.T) {
 			if err == nil {
 				t.Errorf("%s failed: unexpected error %v for %v", testCase.name, err, testCase)
 			}
+		}
+	}
+}
+
+func TestDefaultParser(t *testing.T) {
+	testCases := []parserCase{
+		{
+			key: "",
+			props: []string{""},
+		},
+		{
+			key: "one",
+			props: []string{"one"},
+		},
+		{
+			key: "one.two",
+			props: []string{"one", "two"},
+		},
+		{
+			key: "..one..two",
+			props: []string{"", "", "one", "", "two"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		props := DefaultParser(testCase.key)
+
+		if diff := deep.Equal(testCase.props, props); diff != nil {
+			t.Errorf("unexpected diff (%v) for %v", strings.Join(diff, ", "), testCase)
 		}
 	}
 }

@@ -1,11 +1,12 @@
+// Package dotnotation provides dot notation getters and setters for manipulating data structures.
 package dotnotation
 
-// Parser is the entry point to the implementation that this package provides, and encapsulates configuration
-// as well as the actual logic to get and set via dot or bracket notation.
-type Parser struct {
-	// Getter returns the property value of a given target, or an error.
-	Getter func(target interface{}, property string) (interface{}, error)
+var DefaultAccessor = Accessor{}
 
-	// Setter sets the property value of a given target, to a given value, or returns an error.
-	Setter func(target interface{}, property string, value interface{}) error
+func Set(target interface{}, key string, value interface{}) error {
+	return DefaultAccessor.Set(target, key, value)
+}
+
+func Get(target interface{}, key string) (interface{}, error) {
+	return DefaultAccessor.Get(target, key)
 }
