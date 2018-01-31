@@ -3,7 +3,7 @@ package dotnotation
 import "errors"
 
 // Accessor provides two methods, Get and Set, that can be configured to handle custom data structures via the
-// exported properties, Getter and Setter.
+// exported properties, Parser, Getter, and Setter.
 type Accessor struct {
 	// Getter returns the property value of a given target, or an error.
 	Getter func(target interface{}, property string) (interface{}, error)
